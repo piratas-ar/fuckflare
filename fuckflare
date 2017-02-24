@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Verifica qué sitios estábamos usando y fueron afectados por cloudbleed
+# 
+# © 2017 fauno <fauno@endefensadelsl.org>
+#
+# Copying and distribution of this file, with or without modification,
+# are permitted in any medium without royalty provided the copyright
+# notice and this notice are preserved.  This file is offered as-is,
+# without any warranty.
+
+
+url="https://raw.githubusercontent.com/pirate/sites-using-cloudflare/master/sorted_unique_cf.txt"
+tmp_dir="$(mktemp -d /tmp/fuckflare.XXXX)"
+dest_file="${fuckflare:-${tmp_dir}/fuckflare.txt}"
+
+
+function download () {
+	wget "${url}" -nc -O "${dest_file}"
+}
+
+function in_use () {
+	for i in ~/.mozilla/firefox/*/cookies.sqlite; do
+		echo 'select baseDomain from moz_cookies;' \
+		| sqlite3 "$i"
+	done \
+	| cut -d/ -f3 \
+	| sort -u
+}
+
+function compare () {
+	comm -12 <(in_use) <(sort "${dest_file}")
+}
+
+download
+compare
