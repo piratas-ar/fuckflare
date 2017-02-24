@@ -18,18 +18,41 @@ function download () {
 	wget "${url}" -nc -O "${dest_file}"
 }
 
-function in_use () {
-	for i in ~/.mozilla/firefox/*/cookies.sqlite; do
-		echo 'select baseDomain from moz_cookies;' \
-		| sqlite3 "$i"
+function all_storage () {
+  ls -1 ~/.mozilla/firefox/*/${1}
+}
+
+function any () {
+  all_storage places.sqlite | while read -r i; do
+		echo 'select url from moz_places;' | sqlite3 "$i"
 	done \
 	| cut -d/ -f3 \
 	| sort -u
 }
 
+function cookies () {
+  all_storage cookies.sqlite | while read -r i; do
+		echo 'select baseDomain from moz_cookies;' | sqlite3 "$i"
+	done \
+	| cut -d/ -f3 \
+	| sort -u
+}
+
+function logins () {
+  all_storage logins.json \
+  | xargs -d "\n" cat \
+  | grep -o "https\?://[^\"]\+" \
+  | cut -d/ -f3 \
+  | cut -d: -f1 \
+  | sort -u
+}
+
 function compare () {
-	comm -12 <(in_use) <(sort "${dest_file}")
+  local _compare_file="${tmp_dir}/compare.$1"
+
+	comm -12 <($1) <(sort "${dest_file}") | tee "${_compare_file}"
+  wc -l < "${_compare_file}"
 }
 
 download
-compare
+compare ${1:-any}
